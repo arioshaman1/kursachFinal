@@ -49,7 +49,7 @@ export default {
 
       try {
         console.log('Sending file to server...');
-        const response = await axios.post('http://localhost:8080/api/files/upload', formData, {
+        const response = await axios.post('http://localhost:8080/api/catanddogs/upload', formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
           },

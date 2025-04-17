@@ -36,7 +36,7 @@ public class JwtUtil {
                     .parseClaimsJws(token);
             return true; // Если исключения не было, то токен валидный
         } catch (Exception e) {
-            System.err.println("Token validation failed: " + e.getMessage()); // Логирование ошибки
+            System.err.println("Token validation failed: " + e.getMessage());
             return false; // Токен невалидный
         }
     }
