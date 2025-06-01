@@ -1,0 +1,4 @@
+org/bot/animalsaitelegrambot/AnimalsAiBot.class
+org/bot/animalsaitelegrambot/BotInitializer.class
+org/bot/animalsaitelegrambot/config/BotConfig.class
+org/bot/animalsaitelegrambot/AnimalsAiTelegramBotApplication.class
