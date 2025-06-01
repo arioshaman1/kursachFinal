@@ -4,10 +4,8 @@ from tensorflow.keras.preprocessing import image
 import numpy as np
 import os
 
-# Загрузка модели
 model = load_model('model.h5')
 
-# Инициализация Flask приложения
 app = Flask(__name__)
 
 # Функция для предобработки изображения

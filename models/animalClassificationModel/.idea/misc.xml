@@ -3,5 +3,9 @@
   <component name="Black">
     <option name="sdkName" value="Python 3.9 (dataset downloader)" />
   </component>
+<<<<<<< HEAD
   <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.9 (animalClassificationModel)" project-jdk-type="Python SDK" />
+=======
+  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.9 (yoloModel)" project-jdk-type="Python SDK" />
+>>>>>>> 7ca2715 (final?)
 </project>

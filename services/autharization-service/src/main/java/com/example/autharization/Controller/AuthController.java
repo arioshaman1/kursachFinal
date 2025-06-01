@@ -37,13 +37,11 @@ public class AuthController {
         try {
             String token = authService.authenticateUser(authEntityDTO.getUsername(), authEntityDTO.getPassword());
 
-            // Создаем cookie с токеном
             Cookie cookie = new Cookie("token", token);
             cookie.setHttpOnly(true); // Защита от XSS
             cookie.setPath("/"); // Доступно для всех путей
             cookie.setMaxAge(86400); // Время жизни cookie (в секундах)
 
-            // Добавляем cookie в ответ
             response.addCookie(cookie);
 
             return ResponseEntity.ok("Login successful");
