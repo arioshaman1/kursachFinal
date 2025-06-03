@@ -21,12 +21,16 @@ public class BotConfig {
     @Value("${api.llama.url}")
     private String llamaApiUrl;
 
+    @Value("${api.mobilenet.url}")
+    private String mobilenetUrl;
+
     public String llamaApiUrl() {
         return llamaApiUrl;
     }
 
-
-
+    public String mobilenetUrl() {
+        return mobilenetUrl;
+    }
     public String getServerPort() { return serverPort; }
     public String getName() { return botName; }
     public String getToken() { return botToken; }

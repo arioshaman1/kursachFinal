@@ -8,6 +8,7 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.GetFile;
@@ -23,11 +24,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static java.util.Map.entry;
+
 @Component
 public class AnimalsAiBot extends TelegramLongPollingBot {
 
     private enum DetectionMode {
-        CAT_DOG, YOLO, LLAMA
+        CAT_DOG, YOLO, LLAMA, MOBILENET
     }
 
     private final BotConfig config;
@@ -50,7 +53,7 @@ public class AnimalsAiBot extends TelegramLongPollingBot {
         try {
             if (update.hasMessage()) {
                 if (update.getMessage().hasText()) {
-                    handleTextMessage(update);
+                    handlePhotoMessage(update);
                 } else if (update.getMessage().hasPhoto()) {
                     handlePhotoMessage(update);
                 }
@@ -60,34 +63,99 @@ public class AnimalsAiBot extends TelegramLongPollingBot {
         }
     }
 
-    private void handleTextMessage(Update update) throws TelegramApiException {
-        String messageText = update.getMessage().getText();
+    private void handlePhotoMessage(Update update) throws TelegramApiException {
         long chatId = update.getMessage().getChatId();
 
-        switch (messageText) {
-            case "/start":
-                sendModeSelectionKeyboard(chatId);
-                break;
-            case "🐱🐶 Определить кошку/собаку":
-                currentMode = DetectionMode.CAT_DOG;
-                sendMessage(chatId, "Выбран режим определения кошек и собак. Отправьте фото животного.");
-                break;
-            case "🖼 YOLO анализ":
-                currentMode = DetectionMode.YOLO;
-                sendMessage(chatId, "Выбран YOLO режим анализа. Отправьте фото для детекции объектов.");
-                break;
-            case "💬 Чат с Llama 4":
-                currentMode = DetectionMode.LLAMA;
-                sendMessage(chatId, "Режим чата с нейросетью. Напишите ваш вопрос.");
-                break;
-            default:
-                if (currentMode == DetectionMode.LLAMA) {
-                    String response = askLlama(messageText, chatId);  // Используем новый метод
-                    sendMessage(chatId, response);
-                } else {
-                    sendMessage(chatId, "Пожалуйста, выберите режим работы из меню");
-                }
+        try {
+            // Получаем самое качественное фото
+            String fileId = update.getMessage().getPhoto().get(update.getMessage().getPhoto().size() - 1).getFileId();
+
+            // Скачиваем фото
+            String fileUrl = "https://api.telegram.org/file/bot" + getBotToken() + "/" + execute(new GetFile(fileId)).getFilePath();
+            byte[] photoBytes = new RestTemplate().getForObject(fileUrl, byte[].class);
+
+            // Отправляем на сервис
+            String apiUrl = "http://localhost:8080/api/mobilenet/upload";
+            String response = new RestTemplate().postForObject(
+                    apiUrl,
+                    createRequestWithPhoto(photoBytes),
+                    String.class
+            );
+
+            // Форматируем ответ
+            String formattedResponse = formatAnimalResponse(response);
+            sendMessage(chatId, formattedResponse);
+
+        } catch (Exception e) {
+            sendMessage(chatId, "⚠️ Пожалуйста, отправьте фото, либо произошла ошибка обработки фото:( ");
         }
+    }
+
+    private String formatAnimalResponse(String jsonResponse) {
+        try {
+            JSONObject json = new JSONObject(jsonResponse);
+            JSONObject topPred = json.getJSONObject("top_prediction");
+
+            // Переводим и форматируем название животного
+            String animalName = translateAnimalName(topPred.getString("label"));
+            int confidence = (int)(topPred.getDouble("confidence") * 100);
+
+            // Создаем основной ответ
+            StringBuilder result = new StringBuilder();
+            result.append("🖼 Результат анализа:\n\n")
+                    .append("На фото: *").append(animalName).append("*\n")
+                    .append("Уверенность: ").append(confidence).append("%\n\n");
+
+            // Добавляем эмодзи в зависимости от животного
+            result.append(getAnimalEmoji(animalName)).append("\n\n");
+
+            // Добавляем интересные факты для некоторых животных
+            result.append(getAnimalFact(animalName));
+
+            return result.toString();
+
+        } catch (Exception e) {
+            return "🔍 Не удалось обработать результат. Техническая информация:\n" + jsonResponse;
+        }
+    }
+
+    private String translateAnimalName(String englishName) {
+        // Удаляем префиксы и нижние подчеркивания
+        String cleanName = englishName.replaceAll("^n\\d+_", "").replace("_", " ");
+
+        // Специальные случаи
+        Map<String, String> specialCases = Map.of(
+                "giant panda", "большая панда",
+                "Arctic fox", "песец",
+                "Great Pyrenees", "пиренейская горная собака",
+                "malamute", "маламут",
+                "hog", "кабан"
+        );
+
+        return specialCases.getOrDefault(cleanName, cleanName);
+    }
+
+    private String getAnimalEmoji(String animalName) {
+        return switch (animalName.toLowerCase()) {
+            case "большая панда", "панда" -> "🐼 Панды - удивительные животные, которые питаются преимущественно бамбуком!";
+            case "песец" -> "🦊 Песец - арктический лис с красивым белым мехом!";
+            case "кабан" -> "🐗 Будьте осторожны, кабаны могут быть агрессивными!";
+            case "пиренейская горная собака", "маламут" -> "🐶 Это красивая и крупная порода собак!";
+            default -> "ℹ️ Это интересный представитель животного мира!";
+        };
+    }
+
+    private String getAnimalFact(String animalName) {
+        return switch (animalName.toLowerCase()) {
+            case "большая панда", "панда" ->
+                    "📌 *Интересный факт:* Большие панды проводят до 12 часов в день за едой, съедая до 15% от своего веса в бамбуке!";
+            case "песец" ->
+                    "📌 *Интересный факт:* Песцы могут выживать при температурах до -50°C благодаря своему густому меху!";
+            case "кабан" ->
+                    "📌 *Интересный факт:* Кабаны обладают отличным обонянием и могут учуять пищу под землей!";
+            default ->
+                    "🔍 Хотите узнать больше об этом животном? Напишите мне его название!";
+        };
     }
     private String askLlama(String userMessage, long chatId) {
         try {
@@ -268,47 +336,112 @@ public class AnimalsAiBot extends TelegramLongPollingBot {
                     + jsonResponse;
         }
     }
-
-    private void handlePhotoMessage(Update update) throws TelegramApiException {
-        if (currentMode == null) {
-            sendMessage(update.getMessage().getChatId(), "Сначала выберите режим работы из меню");
-            return;
-        }
-
-        long chatId = update.getMessage().getChatId();
-        String fileId = update.getMessage().getPhoto().get(0).getFileId();
-
-        sendMessage(chatId, "📨 Фото получено, идет обработка...");
-
+    private String formatMobileNetResponse(String jsonResponse) {
         try {
-            byte[] photoBytes = downloadPhotoFromTelegram(fileId);
+            JSONObject json = new JSONObject(jsonResponse);
+            StringBuilder result = new StringBuilder("🔍 Результат анализа изображения:\n\n");
 
-            String apiUrl = currentMode == DetectionMode.CAT_DOG
-                    ? config.catAndDogDetectionUrl()
-                    : config.yoloDetectionUrl();
+            JSONArray predictions = json.getJSONArray("predictions");
+            JSONObject topPrediction = json.getJSONObject("top_prediction");
 
-            String response = sendPhotoToApi(photoBytes, apiUrl);
+            // Фильтруем только релевантные результаты с достаточной уверенностью
+            List<JSONObject> animalPredictions = new ArrayList<>();
+            for (int i = 0; i < predictions.length(); i++) {
+                JSONObject pred = predictions.getJSONObject(i);
+                if (isRelevantAnimal(pred.getString("label")) && pred.getDouble("confidence") > 0.05) {
+                    animalPredictions.add(pred);
+                }
+            }
 
-            System.out.println("Raw API response: " + response);
-            String formattedResponse = currentMode == DetectionMode.CAT_DOG
-                    ? formatCatDogResponse(response)
-                    : formatYoloResponse(response);
+            if (animalPredictions.isEmpty()) {
+                // Если среди предсказаний нет животных
+                return result.append("Не удалось определить животное на фото\n")
+                        .append("Сервис считает, что это может быть:\n")
+                        .append(topPrediction.getString("label"))
+                        .append(" (")
+                        .append(String.format("%.1f", topPrediction.getDouble("confidence") * 100))
+                        .append("%)")
+                        .toString();
+            }
 
-            // 5. Отправляем результат
-            sendMessage(chatId, formattedResponse);
+            // Сортируем по уверенности
+            animalPredictions.sort((a, b) -> Double.compare(b.getDouble("confidence"), a.getDouble("confidence")));
+
+            // Берем топ-3 релевантных результата
+            result.append("На фото вероятно изображено:\n");
+            for (int i = 0; i < Math.min(3, animalPredictions.size()); i++) {
+                JSONObject pred = animalPredictions.get(i);
+                String label = translateAnimalName(pred.getString("label"));
+                result.append("\n")
+                        .append(i + 1).append(". ")
+                        .append(getAnimalEmoji(label)).append(" ")
+                        .append(label).append(" - ")
+                        .append(String.format("%.1f", pred.getDouble("confidence") * 100))
+                        .append("%");
+            }
+
+            return result.toString();
+
         } catch (Exception e) {
-            sendErrorMessage(chatId, "Ошибка при обработке фото: " + e.getMessage());
+            return "⚠️ Ошибка обработки результатов. Попробуйте другое фото.\n" +
+                    "Техническая информация: " + e.getMessage();
         }
     }
 
-    private byte[] downloadPhotoFromTelegram(String fileId) throws TelegramApiException {
-        org.telegram.telegrambots.meta.api.objects.File file = execute(new GetFile(fileId));
-        String fileUrl = "https://api.telegram.org/file/bot" + getBotToken() + "/" + file.getFilePath();
+    private boolean isRelevantAnimal(String label) {
+        // Исключаем предметы и нерелевантные категории
+        String lowerLabel = label.toLowerCase();
+        return !lowerLabel.contains("_") &&  // Исключаем составные названия
+                !lowerLabel.contains(" ") &&
+                !lowerLabel.equals("dog") &&
+                !lowerLabel.equals("cat") &&
+                !lowerLabel.equals("chihuahua") &&
+                !lowerLabel.equals("terrier") &&
+                !lowerLabel.matches(".*(curtain|screen|furniture|device|tool).*");
+    }
 
+    private HttpEntity<MultiValueMap<String, Object>> createRequestWithPhoto(byte[] photoBytes) {
+        // Создаем заголовки
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+        // Подготавливаем файл для отправки
+        ByteArrayResource fileAsResource = new ByteArrayResource(photoBytes) {
+            @Override
+            public String getFilename() {
+                return "telegram_photo.jpg";
+            }
+        };
+
+        // Формируем тело запроса
+        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+        body.add("file", fileAsResource);
+
+        return new HttpEntity<>(body, headers);
+    }
+    private byte[] downloadPhotoFromTelegram(String fileId) throws TelegramApiException {
         try {
-            return restTemplate.getForObject(fileUrl, byte[].class);
-        } catch (Exception e) {
-            throw new TelegramApiException("Ошибка загрузки фото", e);
+            // Получаем информацию о файле
+            org.telegram.telegrambots.meta.api.objects.File file = execute(new GetFile(fileId));
+
+            // Формируем URL для скачивания
+            String fileUrl = "https://api.telegram.org/file/bot" + getBotToken() + "/" + file.getFilePath();
+
+            // Загружаем файл
+            ResponseEntity<byte[]> response = restTemplate.exchange(
+                    fileUrl,
+                    HttpMethod.GET,
+                    null,
+                    byte[].class
+            );
+
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                return response.getBody();
+            } else {
+                throw new TelegramApiException("Не удалось загрузить фото: " + response.getStatusCode());
+            }
+        } catch (RestClientException e) {
+            throw new TelegramApiException("Ошибка при загрузке фото: " + e.getMessage(), e);
         }
     }
 
@@ -333,7 +466,8 @@ public class AnimalsAiBot extends TelegramLongPollingBot {
         row1.add("🖼 YOLO анализ");
 
         KeyboardRow row2 = new KeyboardRow();
-        row2.add("💬 Чат с Llama 4");  // Новая кнопка
+        row2.add("📱 Классификация животных");  // Новая кнопка
+        row2.add("💬 Чат с Llama 4");
 
         keyboard.add(row1);
         keyboard.add(row2);
