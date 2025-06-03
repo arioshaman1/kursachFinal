@@ -1,15 +1,16 @@
-import { createRouter, createWebHistory } from 'vue-router'; // Импортируем функции из Vue Router 4
+import { createRouter, createWebHistory } from 'vue-router';
 import UserLogin from '@/components/UserLogin.vue';
 import UserRegister from '@/components/UserRegister.vue';
 import PhotoUpload from '@/components/PhotoUploader.vue';
-import Home from '@/components/Home.vue'; // Импортируем главную страницу
+import Home from '@/components/Home.vue';
 import YoloModel from '@/components/YoloModel.vue';
+import MobileNetClassifier from '@/components/MobileNetClassifier.vue'; // Импортируем новый компонент
 
 const routes = [
   {
     path: '/',
     name: 'Home',
-    component: Home, 
+    component: Home,
   },
   {
     path: '/login',
@@ -32,14 +33,28 @@ const routes = [
     component: YoloModel,
   },
   {
-    path: '/:pathMatch(.*)*', // Должен быть в конце, чтобы не перехватывать другие маршруты
-    redirect: '/', // Перенаправляем на главную страницу
+    path: '/mobilenet',
+    name: 'MobileNetClassifier',
+    component: MobileNetClassifier,
+    meta: {
+      title: 'Image Classification with MobileNet' // Дополнительные метаданные
+    }
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    redirect: '/',
   },
 ];
 
 const router = createRouter({
-  history: createWebHistory(), // Используем историю HTML5
+  history: createWebHistory(),
   routes,
+});
+
+// Опционально: установка заголовков страниц
+router.beforeEach((to, from, next) => {
+  document.title = to.meta.title || 'Default Title';
+  next();
 });
 
 export default router;
