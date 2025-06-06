@@ -2,7 +2,7 @@
   <div class="classification-container">
     <div class="classification-card">
       <div class="header">
-        <h2 class="title">Классификатор животоных :)</h2>
+        <h2 class="title">Классификатор  животоных и их породы</h2>
         <p class="subtitle">Использует MobileNetV2</p>
       </div>
 
