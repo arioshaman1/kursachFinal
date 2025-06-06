@@ -13,16 +13,14 @@ import org.springframework.web.client.RestTemplate;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.GetFile;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.objects.PhotoSize;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.springframework.core.io.ByteArrayResource;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static java.util.Map.entry;
 
@@ -53,13 +51,24 @@ public class AnimalsAiBot extends TelegramLongPollingBot {
         try {
             if (update.hasMessage()) {
                 if (update.getMessage().hasText()) {
-                    handlePhotoMessage(update);
+                    handleTextMessage(update); // Текстовые сообщения обрабатываем здесь
                 } else if (update.getMessage().hasPhoto()) {
-                    handlePhotoMessage(update);
+                    handlePhotoMessage(update); // Фото обрабатываем здесь
                 }
             }
         } catch (Exception e) {
             sendErrorMessage(update.getMessage().getChatId(), "Ошибка: " + e.getMessage());
+        }
+    }
+    private void handleTextMessage(Update update) throws TelegramApiException {
+        String messageText = update.getMessage().getText();
+        long chatId = update.getMessage().getChatId();
+
+        if (messageText.equals("/start")) {
+            sendModeSelectionKeyboard(chatId);
+        } else {
+            // Обработка других текстовых сообщений
+            sendMessage(chatId, "Пожалуйста, выберите режим работы из меню или отправьте фото");
         }
     }
 
@@ -67,27 +76,41 @@ public class AnimalsAiBot extends TelegramLongPollingBot {
         long chatId = update.getMessage().getChatId();
 
         try {
-            // Получаем самое качественное фото
-            String fileId = update.getMessage().getPhoto().get(update.getMessage().getPhoto().size() - 1).getFileId();
+            // Проверяем, что фото действительно есть
+            if (update.getMessage().getPhoto().isEmpty()) {
+                sendMessage(chatId, "⚠️ Не удалось получить фото. Попробуйте отправить еще раз.");
+                return;
+            }
 
-            // Скачиваем фото
-            String fileUrl = "https://api.telegram.org/file/bot" + getBotToken() + "/" + execute(new GetFile(fileId)).getFilePath();
-            byte[] photoBytes = new RestTemplate().getForObject(fileUrl, byte[].class);
+            // Получаем самое качественное фото
+            String fileId = update.getMessage().getPhoto()
+                    .stream()
+                    .max(Comparator.comparing(PhotoSize::getFileSize))
+                    .orElseThrow()
+                    .getFileId();
+
+            sendMessage(chatId, "⏳ Обрабатываю фото...");
+
+            // Скачиваем фото с улучшенной обработкой ошибок
+            byte[] photoBytes = downloadPhotoFromTelegram(fileId);
+
+            // Проверяем размер фото
+            if (photoBytes == null || photoBytes.length == 0) {
+                sendMessage(chatId, "⚠️ Не удалось загрузить фото. Попробуйте отправить другое изображение.");
+                return;
+            }
 
             // Отправляем на сервис
             String apiUrl = "http://localhost:8080/api/mobilenet/upload";
-            String response = new RestTemplate().postForObject(
-                    apiUrl,
-                    createRequestWithPhoto(photoBytes),
-                    String.class
-            );
+            String response = sendPhotoToApi(photoBytes, apiUrl);
 
-            // Форматируем ответ
+            // Форматируем и отправляем результат
             String formattedResponse = formatAnimalResponse(response);
             sendMessage(chatId, formattedResponse);
 
         } catch (Exception e) {
-            sendMessage(chatId, "⚠️ Пожалуйста, отправьте фото, либо произошла ошибка обработки фото:( ");
+            sendMessage(chatId, "⚠️ Произошла ошибка при обработке фото. Пожалуйста, попробуйте еще раз.");
+            e.printStackTrace(); // Логируем ошибку для отладки
         }
     }
 

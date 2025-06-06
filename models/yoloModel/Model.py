@@ -6,6 +6,7 @@ import uuid
 from werkzeug.utils import secure_filename
 from flask_cors import CORS
 
+
 with torch.serialization.safe_globals([torch.nn.Module]):
     model = YOLO("yolov8n.pt")
 
@@ -93,3 +94,4 @@ def predict():
 if __name__ == '__main__':
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
     app.run(host='0.0.0.0', port=5001, debug=True)
+

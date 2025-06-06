@@ -37,7 +37,7 @@ const routes = [
     name: 'MobileNetClassifier',
     component: MobileNetClassifier,
     meta: {
-      title: 'Image Classification with MobileNet' // Дополнительные метаданные
+      title: 'Image Classification with MobileNet' //
     }
   },
   {
