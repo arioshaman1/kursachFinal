@@ -2,8 +2,8 @@
   <div class="yolo-container">
     <div class="yolo-card">
       <div class="header">
-        <h1 class="title">YOLOv8 Object Detection</h1>
-        <p class="subtitle">Detect objects in images and videos</p>
+        <h1 class="title">YOLOv8 Детекция обьектов</h1>
+        <p class="subtitle">Детекция обьектов на картинках и видео</p>
       </div>
 
       <div
@@ -16,8 +16,8 @@
       >
         <div class="drop-content">
           <i class="fas fa-cloud-upload-alt upload-icon"></i>
-          <p>Drag & drop your file here</p>
-          <span class="or-text">or</span>
+          <p>Нажмите или перетащите фото или видео</p>
+          <span class="or-text">или</span>
           <button class="browse-btn">Browse Files</button>
           <input
               type="file"
@@ -45,7 +45,7 @@
 
       <div class="action-buttons">
         <button @click="goBack" class="back-button">
-          <i class="fas fa-arrow-left"></i> Back
+          <i class="fas fa-arrow-left"></i> Назад
         </button>
         <button
             @click="processFile"
@@ -53,7 +53,7 @@
             :disabled="!file || isProcessing"
         >
           <span v-if="!isProcessing">
-            <i class="fas fa-search"></i> Detect Objects
+            <i class="fas fa-search"></i> Детекция обьектов
           </span>
           <span v-else>
             <i class="fas fa-spinner fa-spin"></i> Processing...
@@ -66,7 +66,7 @@
       </div>
 
       <div v-if="result" class="results-section">
-        <h2 class="results-title">Detection Results</h2>
+        <h2 class="results-title">Результаты детекции</h2>
 
         <div class="media-preview">
           <div v-if="result.media_type === 'image'" class="image-container">
@@ -96,20 +96,20 @@
         </div>
 
         <div class="detections-summary">
-          <h3>Detection Summary</h3>
+          <h3>В итоге мы нашли</h3>
           <div class="stats">
             <div class="stat-item">
               <span class="stat-value">{{ result.detections.length }}</span>
-              <span class="stat-label">Objects Found</span>
+              <span class="stat-label">Обьекты найдены</span>
             </div>
             <div class="stat-item">
               <span class="stat-value">{{ uniqueClasses.length }}</span>
-              <span class="stat-label">Unique Classes</span>
+              <span class="stat-label">Уникальные Обьекты</span>
             </div>
           </div>
 
           <div class="detections-list">
-            <h4>Detected Objects:</h4>
+            <h4>Найдены Обьекты:</h4>
             <ul>
               <li v-for="(cls, index) in uniqueClasses" :key="index">
                 <span class="class-name">{{ cls }}</span>
