@@ -23,6 +23,7 @@
               class="file-input"
           />
         </div>
+        <p class="subtitle">Пожалуйста, загружайте только картинки собак или кошек, больше он ничего не определяет :(</p>
 
         <div class="file-info" v-if="selectedFile">
           <p><strong>Название файла:</strong> {{ selectedFile.name }}</p>
@@ -33,7 +34,7 @@
 
       <div class="action-buttons">
         <button @click="goBack" class="back-button">
-          <i class="fas fa-arrow-left"></i> Back
+          <i class="fas fa-arrow-left"></i> Назад
         </button>
         <button
             @click="classifyImage"
@@ -41,7 +42,7 @@
             :disabled="!selectedFile || isProcessing"
         >
           <span v-if="!isProcessing">
-            <i class="fas fa-brain"></i> CLASSIFY
+            <i class="fas fa-brain"></i> ОПРЕДЕЛИТЬ
           </span>
           <span v-else>
             <i class="fas fa-spinner fa-spin"></i> Processing...
@@ -54,10 +55,10 @@
       </div>
 
       <div v-if="result" class="result-section">
-        <h3 class="result-title">Classification Results</h3>
+        <h3 class="result-title">Результат определения</h3>
 
         <div class="top-prediction">
-          <h4>Most likely:</h4>
+          <h4>Скорее всего это:</h4>
           <div class="prediction-item highlight">
             <span class="prediction-label">{{ result.label }}</span>
             <span class="prediction-confidence">
@@ -180,19 +181,24 @@ export default {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
   padding: 20px;
   font-family: 'Poppins', sans-serif;
+  background-image: url('@/assets/background1.avif');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
 }
 
 .classification-card {
-  background: white;
+  background: rgba(255, 255, 255, 0.9);
   border-radius: 16px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
   padding: 30px;
   width: 100%;
   max-width: 700px;
   transition: all 0.3s ease;
+  backdrop-filter: blur(5px);
 }
 
 .header {
